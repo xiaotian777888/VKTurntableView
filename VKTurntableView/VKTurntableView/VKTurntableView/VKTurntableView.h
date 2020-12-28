@@ -12,14 +12,18 @@
 //   - 1.25
 @interface DWTurntableViewModel : NSObject
 
-@property (nonatomic, assign) NSInteger index;
-@property (nonatomic, strong) NSString *title;
+@property (nonatomic, strong) NSString *remark;
+@property (nonatomic, assign) int index;
+@property(assign,nonatomic) int displayIndex;
 @property (nonatomic, strong) NSString *imageName;
+@property(assign,nonatomic) int num;
 
+//@property(assign,nonatomic) BOOL isAnimating;//是否是当前正在转的
 @end
 
 @interface VKTurntableView : UIView
 
+@property (strong,nonatomic) UIImageView * bg;
 @property (strong,nonatomic) UIColor* textFontColor;
 @property (strong,nonatomic) NSDictionary *attributes;
 @property (assign,nonatomic) CGSize imageSize;
@@ -29,11 +33,8 @@
 
 @property (nonatomic, strong) NSArray<DWTurntableViewModel *> *luckyItemArray;
 
-// random prize 随机
-- (void)startRotationWithEndValue:(CGFloat)endValue;
-
-// specific prize 指定中奖
-- (void)startRotationWithEndValue:(CGFloat)endValue round:(NSInteger)round;
+//displayIndex 数组下标
+- (void)turntableRotateToDisplayIndex:(NSInteger)displayIndex;
 
 @property(copy,nonatomic) void(^lunckyAnimationDidStopBlock)(BOOL flag);
 @end

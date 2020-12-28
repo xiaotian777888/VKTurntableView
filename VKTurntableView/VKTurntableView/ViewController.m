@@ -47,26 +47,25 @@
 
 @property (strong, nonatomic) VKTurntableView *turntable;
 @property (strong,nonatomic) UIButton * goBtn;
-@property (strong, nonatomic) NSMutableArray *luckyItemArray;
-
-@property (assign, nonatomic) NSInteger endId;  //  仅代表停止位置，不代表奖品ID。(更改转盘奖品个数，这个ID不准，自行修改旋转角度)
-
+@property (strong, nonatomic) NSMutableArray <DWTurntableViewModel *>*luckyItemArray;
+@property (strong,nonatomic) NSMutableArray * zjList;//转盘结果数组 [{"qzIndex":1,"remark":"18元现金券","num":3}]
+@property (strong,nonatomic) DWTurntableViewModel * curItem;
 @end
 
 @implementation ViewController
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    // Do any additional setup after loading the view.
-    [self initTurntableView];
     
+    //初始化转盘数据
+    [self initItemDataArray];
+    [self initTurntableView];
     [self initStartBtn];
-    [self initResultView];
 }
 
 - (void)initStartBtn {
-    CGFloat width = 186/2.f;
-    CGFloat height = 312/2.f;
+    CGFloat width = 186/3.f;
+    CGFloat height = 312/3.f;
     UIButton *start = [[UIButton alloc] initWithFrame:CGRectMake((CGRectGetWidth(self.view.bounds)-width)*0.5, (CGRectGetHeight(self.view.frame)-height)*0.5+20, width,height)];
     self.goBtn = start;
 //    [start setTitle:@"Start" forState:(UIControlStateNormal)];
@@ -76,10 +75,73 @@
     [start addTarget:self action:@selector(startAction) forControlEvents:(UIControlEventTouchUpInside)];
 }
 
+- (void)requestZJList
+{
+    self.zjList = @[].mutableCopy;
+    DWTurntableViewModel * item = [[DWTurntableViewModel alloc]init];
+    item.index = 0;
+    item.remark = @"18元现金券";
+    item.num = 1;
+    [self.zjList addObject:item];
+    
+    item = [[DWTurntableViewModel alloc]init];
+    item.index = 1;
+    item.remark = @"188元现金券";
+    item.num = 1;
+    [self.zjList addObject:item];
+    
+    item = [[DWTurntableViewModel alloc]init];
+    item.index = 7;
+    item.remark = @"苹果手机*1部";
+    item.num = 1;
+    [self.zjList addObject:item];
+    
+    DWTurntableViewModel * curItem = self.zjList.firstObject;
+    self.curItem = curItem;
+}
+
 - (void)startAction {
     self.goBtn.userInteractionEnabled = NO;
-    _endId = arc4random() % _luckyItemArray.count;
-    [self turntableRotate:_endId];
+    
+    //请求转盘结果
+    [self requestZJList];
+    [self startTurn];
+}
+
+//开始转
+- (void)startTurn
+{
+    if (self.curItem) {
+        DWTurntableViewModel * item = [self getItemByIndex:self.curItem.index];
+        if (item) {
+            NSLog(@"奖品应该是：%@",item);
+            [self.turntable turntableRotateToDisplayIndex:item.displayIndex];
+        }else{
+            NSLog(@"没有此奖品");
+        }
+    }
+}
+//继续下一次转动
+- (void)continueNextTurnIfNeed
+{
+    NSUInteger curIndex = [self.zjList indexOfObject:self.curItem];
+    if (curIndex >= self.zjList.count-1) {
+        //最后一个
+        self.curItem = nil;
+    }else{
+        self.curItem = self.zjList[curIndex+1];
+    }
+    if (self.curItem) {
+        [self startTurn];
+    }
+}
+
+- (DWTurntableViewModel *)getItemByIndex:(int)index
+{
+    NSPredicate * pre = [NSPredicate predicateWithFormat:@"SELF.index == %d",index];
+    NSArray * result = [self.luckyItemArray filteredArrayUsingPredicate:pre];
+    DWTurntableViewModel * item = result.firstObject;
+    return item;
 }
 
 - (void)initResultView {
@@ -95,6 +157,7 @@
     [self.view addSubview:bg];
 
     _turntable = [[VKTurntableView alloc] init];
+//    _turntable.bg = bg;
     NSDictionary * attributes = @{
                         NSForegroundColorAttributeName:UIColor.whiteColor,
                         NSFontAttributeName:[UIFont boldSystemFontOfSize:10]
@@ -115,54 +178,45 @@
         @strongify(self);
         if (self) {
             self.goBtn.userInteractionEnabled = YES;
-            [self lunckyAnimationDidStop];
+            NSLog(@"============🌝🌝🌝🌝🌝🌝🌝🌝============:\n%@",self.curItem);
+            [self continueNextTurnIfNeed];
         }
     }];
     [self.view addSubview:_turntable];
     _turntable.frame = rect;
+    _turntable.luckyItemArray = self.luckyItemArray;
+}
+
+- (void)initItemDataArray
+{
     _luckyItemArray = [NSMutableArray array];
-    for (int i = 0; i < 6; i++) {
+//zjList:[{"qzIndex":1,"remark":"18元现金券","num":3}]   qzIndex(0 18元现金券,1 188元现金券,2 主播名片*1次,3 入场特效*7天,4  vip发言*7天,5  推广新秀*30天,6  推广至尊*30天,7  苹果手机*1部)
+    NSArray * goods = @[@{@"title":@"18元现金券",@"qzIndex":@"0",@"displayIndex":@"7",@"imageName":@"vk_vkooy"},
+                        @{@"title":@"188元现金券",@"qzIndex":@"1",@"displayIndex":@"6",@"imageName":@"vk_vkooy"},
+                        @{@"title":@"主播名片*1次",@"qzIndex":@"2",@"displayIndex":@"5",@"imageName":@"vk_vkooy"},
+                        @{@"title":@"入场特效*7天",@"qzIndex":@"3",@"displayIndex":@"4",@"imageName":@"vk_vkooy"},
+                        @{@"title":@"vip发言*7天",@"qzIndex":@"4",@"displayIndex":@"3",@"imageName":@"vk_vkooy"},
+                        @{@"title":@"推广至尊*30天",@"qzIndex":@"5",@"displayIndex":@"2",@"imageName":@"vk_vkooy"},
+                        @{@"title":@"推广新秀*30天",@"qzIndex":@"6",@"displayIndex":@"1",@"imageName":@"vk_vkooy"},
+                        @{@"title":@"苹果手机*1部",@"qzIndex":@"7",@"displayIndex":@"0",@"imageName":@"vk_vkooy"}];
+    for (int i = 0; i < goods.count ; i++) {
         DWTurntableViewModel *model = [[DWTurntableViewModel alloc] init];
-        model.title = [NSString stringWithFormat:@"魅力新秀荣誉称号%d天",i];
-        model.index = i;
-        model.imageName = @"vk_vkooy";
-        [_luckyItemArray addObject:model];
+        if (goods.count > i) {
+            NSDictionary * dic = goods[i];
+            NSString * title = dic[@"title"];
+            NSString * displayIndex = dic[@"displayIndex"];
+            NSString * qzIndex = dic[@"qzIndex"];
+            NSString * imageName = dic[@"imageName"];
+            model.remark = title;
+            model.index = qzIndex.intValue;
+            model.displayIndex = displayIndex.intValue;
+            model.imageName = imageName;
+            [_luckyItemArray addObject:model];
+        }
     }
-    
-    _turntable.luckyItemArray = _luckyItemArray;
-    
-    
+    [_luckyItemArray sortUsingComparator:^NSComparisonResult(DWTurntableViewModel *  _Nonnull obj1, DWTurntableViewModel *  _Nonnull obj2) {
+        return obj1.displayIndex>obj2.displayIndex;
+    }];
 }
-
-
-- (void)turntableRotate:(NSInteger)index {
-    CGFloat count = _turntable.luckyItemArray.count;
-    CGFloat angel = (360 / count);
-    CGFloat angle4Rotate = angel * (index+1);// 以 π*3/2 为终点, 加多一圈以防反转, 默认顺时针
-    angle4Rotate = angle4Rotate+90-angel*0.5;
-    angle4Rotate = 360-angle4Rotate;
-    //index为0的起始角度为0 go箭头向上相差270度
-    /*
-    CGFloat move = (360 / count)*3.5;
-    CGFloat angle4Rotate = 270.0 - (360.0 / count) * index + (360.0 / count) / 2;// 以 π*3/2 为终点, 加多一圈以防反转, 默认顺时针
-    if (angle4Rotate > 360){
-        angle4Rotate -= 360;
-    }
-     */
-    CGFloat radians = VKDegress2Radians(angle4Rotate) + M_PI * 6;
-    [_turntable startRotationWithEndValue:radians round:3];
-}
-
-- (void)lunckyAnimationDidStop {
-    NSLog(@"============🌝🌝🌝🌝🌝🌝🌝🌝============:%ld",_endId);
-    
-    DWTurntableViewModel *model = _luckyItemArray[_endId];
-    
-    NSLog(@"============🌝🌝🌝🌝🌝🌝🌝🌝============:%@",model.title);
-}
-
-
-
-
 
 @end

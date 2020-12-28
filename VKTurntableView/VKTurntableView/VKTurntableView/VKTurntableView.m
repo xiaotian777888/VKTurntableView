@@ -11,6 +11,12 @@
 @import CoreGraphics;
 
 @implementation DWTurntableViewModel
+
+-(NSString *)description
+{
+    return [NSString stringWithFormat:@"title=%@ , displayIndex=%d , index=%d",self.remark,self.displayIndex,self.index];
+}
+
 @end
 
 @interface VKTurntableView ()<CAAnimationDelegate>{
@@ -127,13 +133,25 @@ static CGPoint pointAroundCircumference(CGPoint center, CGFloat radius, CGFloat 
 
 #pragma mark - Public Methods
 
-- (void)startRotationWithEndValue:(CGFloat)endValue{
-    
-//    [self.layer removeAllAnimations];
-    [self startRotationWithEndValue:endValue round:0];
-    
+- (void)turntableRotateToDisplayIndex:(NSInteger)displayIndex
+{
+    CGFloat count = self.luckyItemArray.count;
+    CGFloat angel = (360 / count);
+    CGFloat angle4Rotate = angel * (displayIndex+1);// 以 π*3/2 为终点, 加多一圈以防反转, 默认顺时针
+    angle4Rotate = angle4Rotate+90-angel*0.5; //自定义文字和奖品模式
+//    angle4Rotate = angle4Rotate+angel;//背景图片自带文字和奖品模式
+    angle4Rotate = 360-angle4Rotate;
+    //index为0的起始角度为0 go箭头向上相差270度
+    /*
+    CGFloat move = (360 / count)*3.5;
+    CGFloat angle4Rotate = 270.0 - (360.0 / count) * index + (360.0 / count) / 2;// 以 π*3/2 为终点, 加多一圈以防反转, 默认顺时针
+    if (angle4Rotate > 360){
+        angle4Rotate -= 360;
+    }
+     */
+    CGFloat radians = VKDegress2Radians(angle4Rotate) + M_PI * 6;
+    [self startRotationWithEndValue:radians round:3];
 }
-
 - (void)startRotationWithEndValue:(CGFloat)endValue round:(NSInteger)round{
     
     CABasicAnimation *animation = [CABasicAnimation animationWithKeyPath:@"transform.rotation"];
@@ -212,11 +230,11 @@ static CGPoint pointAroundCircumference(CGPoint center, CGFloat radius, CGFloat 
             [fanPath fill];
            
             //text 文字
-            NSMutableAttributedString * attributeString = [[NSMutableAttributedString alloc] initWithString:obj.title attributes:_attributes];
+            NSMutableAttributedString * attributeString = [[NSMutableAttributedString alloc] initWithString:obj.remark attributes:_attributes];
 //            [attributeString addAttribute:NSParagraphStyleAttributeName
 //                                         value:_paragraphStyle
 //                                         range:NSMakeRange(0, obj.title.length)];
-            [self drawCurvedStringOnLayer:self.layer withAttributedText:attributeString.copy atAngle:VKDegress2Radians((i + 0.5) * degree) withRadius:center.x - _circleWidth - _textFontSize - _textPadding];
+            [self drawStringOnLayer:self.layer withAttributedText:attributeString.copy atAngle:VKDegress2Radians((i + 0.5) * degree) withRadius:center.x - _circleWidth - _textFontSize - _textPadding];
             
             //image 图片
             CALayer *imageLayer = [CALayer layer];
@@ -298,9 +316,10 @@ static CGPoint pointAroundCircumference(CGPoint center, CGFloat radius, CGFloat 
                         atAngle:(float)angle
                      withRadius:(float)radius {
     
-    CGSize textSize = CGRectIntegral([text boundingRectWithSize:CGSizeMake(CGFLOAT_MAX, CGFLOAT_MAX)
-                                                        options:(NSStringDrawingUsesLineFragmentOrigin|NSStringDrawingUsesFontLeading)
-                                                        context:nil]).size;
+//    CGSize textSize = CGRectIntegral([text boundingRectWithSize:CGSizeMake(CGFLOAT_MAX, CGFLOAT_MAX)
+//                                                        options:(NSStringDrawingUsesLineFragmentOrigin|NSStringDrawingUsesFontLeading)
+//                                                        context:nil]).size;
+    CGSize textSize = text.size;
 //    CGRect rect = CGRectMake(layer.frame.size.width/2 - textSize.width/2,
 //                             layer.frame.size.height/2 - textSize.height/2, textSize.width, textSize.height);
 //    [self drawTextOnLayer:layer withText:text frame:rect bgColor:nil opacity:1.f];
@@ -322,18 +341,16 @@ static CGPoint pointAroundCircumference(CGPoint center, CGFloat radius, CGFloat 
         angle -= textAngle / 2;
 //    }
     
+
     for (int c = 0; c < text.length; c++) {
         NSRange range = {c, 1};
         NSAttributedString* letter = [text attributedSubstringFromRange:range];
-        CGSize charSize = CGRectIntegral([letter boundingRectWithSize:CGSizeMake(CGFLOAT_MAX, CGFLOAT_MAX)
+        CGSize charSize = CGRectIntegral([letter boundingRectWithSize:CGSizeMake(CGFLOAT_MAX, textSize.height)
                                                               options:(NSStringDrawingUsesLineFragmentOrigin|NSStringDrawingUsesFontLeading)
                                                               context:nil]).size;
-        
         CGFloat letterAngle = ((charSize.width / perimeter) * textDirection );
-        
         CGFloat x = radius * cos(angle + (letterAngle/2));
         CGFloat y = radius * sin(angle + (letterAngle/2));
-        
         CATextLayer *singleChar = [self drawTextOnLayer:layer
                                                withText:letter
                                                   frame:CGRectMake(layer.frame.size.width/2 - charSize.width/2 + x,
@@ -341,12 +358,38 @@ static CGPoint pointAroundCircumference(CGPoint center, CGFloat radius, CGFloat 
                                                                    charSize.width, charSize.height)
                                                 bgColor:nil
                                                 opacity:1];
-        
         singleChar.transform = CATransform3DMakeAffineTransform( CGAffineTransformMakeRotation(angle - textRotation) );
-        
         angle += letterAngle;
     }
+}
+
+- (void)drawStringOnLayer:(CALayer *)layer
+             withAttributedText:(NSAttributedString *)text
+                        atAngle:(float)angle
+                     withRadius:(float)radius {
     
+    CGSize textSize = CGRectIntegral([text boundingRectWithSize:CGSizeMake(80, 25)
+                                                        options:(NSStringDrawingUsesLineFragmentOrigin|NSStringDrawingUsesFontLeading)
+                                                        context:nil]).size;
+//    CGSize textSize = CGSizeMake(80, 25);
+//    CGFloat perimeter = 2 * M_PI * radius;
+    textSize.height +=1;//高度刚好显示不出第二行，要加1
+    CGFloat textRotation = 0;
+    CGFloat textDirection = 0;
+    textRotation = 1.5 * M_PI ;
+    textDirection = 2 * M_PI;
+    
+    CGFloat x = radius * cos(angle);
+    CGFloat y = radius * sin(angle);
+    CATextLayer * textLayer = [self drawTextOnLayer:layer
+                  withText:text
+                     frame:CGRectMake(layer.frame.size.width/2 - textSize.width/2+x,
+                                      layer.frame.size.height/2 - textSize.height/2+y,
+                                      textSize.width, textSize.height)
+                   bgColor:nil
+                   opacity:1];
+
+    textLayer.transform = CATransform3DMakeAffineTransform(CGAffineTransformMakeRotation(angle - textRotation));
 }
 
 
@@ -363,6 +406,7 @@ static CGPoint pointAroundCircumference(CGPoint center, CGFloat radius, CGFloat 
     [textLayer setBackgroundColor:bgColor.CGColor];
     [textLayer setContentsScale:[UIScreen mainScreen].scale];
     [textLayer setOpacity:opacity];
+    [textLayer setWrapped:YES];
     [layer addSublayer:textLayer];
     return textLayer;
 }
