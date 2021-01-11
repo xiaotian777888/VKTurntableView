@@ -10,6 +10,10 @@
 #import "UIImage+CGImageRef.h"
 @import CoreGraphics;
 
+
+@implementation DWTurntableGradientColorModel
+@end
+
 @implementation DWTurntableViewModel
 
 -(NSString *)description
@@ -27,6 +31,7 @@
     CGSize _imageSize;
     //相间颜色
     NSArray * _panBgColors;
+    NSArray * _panBgGradientColors;
     UIColor *_circleBgColor;//外环 bgColor
     UIColor *_dotColor;
     UIColor *_dotShinningColor;
@@ -41,6 +46,7 @@
 @property (strong, nonatomic) NSOperationQueue *imageRenderQueue;
 @property (nonatomic, assign) CGFloat startValue;//default = 0
 
+@property(assign,nonatomic) NSInteger displayIndex;
 @end
 
 static CGPoint pointAroundCircumference(CGPoint center, CGFloat radius, CGFloat theta);
@@ -135,6 +141,7 @@ static CGPoint pointAroundCircumference(CGPoint center, CGFloat radius, CGFloat 
 
 - (void)turntableRotateToDisplayIndex:(NSInteger)displayIndex
 {
+    self.displayIndex = displayIndex;
     CGFloat count = self.luckyItemArray.count;
     CGFloat angel = (360 / count);
     CGFloat angle4Rotate = angel * (displayIndex+1);// 以 π*3/2 为终点, 加多一圈以防反转, 默认顺时针
@@ -175,7 +182,7 @@ static CGPoint pointAroundCircumference(CGPoint center, CGFloat radius, CGFloat 
 - (void)animationDidStop:(CAAnimation *)anim finished:(BOOL)flag{
 //    [[NSNotificationCenter defaultCenter] postNotificationName:@"VKLunckyAnimationDidStopNotication" object:nil];
     if (self.lunckyAnimationDidStopBlock) {
-        self.lunckyAnimationDidStopBlock(flag);
+        self.lunckyAnimationDidStopBlock(flag,self.luckyItemArray[self.displayIndex]);
     }
 }
 
@@ -224,11 +231,22 @@ static CGPoint pointAroundCircumference(CGPoint center, CGFloat radius, CGFloat 
                           endAngle:VKDegress2Radians((i + 1) * degree)
                          clockwise:YES];
             [fanPath closePath];
-            int colorIndex = i%_panBgColors.count;
-            UIColor * color = _panBgColors[colorIndex];
-            [color setFill];
-            [fanPath fill];
-           
+            if (_panBgGradientColors) {
+                [fanPath fill];
+                int colorIndex = i%_panBgGradientColors.count;
+                DWTurntableGradientColorModel * gradientColorModel = _panBgGradientColors[colorIndex];
+                CGContextRef gc = UIGraphicsGetCurrentContext();
+                [self drawLinearGradient:gc path:fanPath.CGPath startColor:gradientColorModel.startColor.CGColor endColor:gradientColorModel.endColor.CGColor];
+                
+            }else{
+                int colorIndex = i%_panBgColors.count;
+                UIColor * color = _panBgColors[colorIndex];
+                [color setFill];
+                [fanPath fill];
+            }
+            
+
+            
             //text 文字
             NSMutableAttributedString * attributeString = [[NSMutableAttributedString alloc] initWithString:obj.remark attributes:_attributes];
 //            [attributeString addAttribute:NSParagraphStyleAttributeName
@@ -241,7 +259,7 @@ static CGPoint pointAroundCircumference(CGPoint center, CGFloat radius, CGFloat 
             NSBlockOperation *operaton = [NSBlockOperation blockOperationWithBlock:^{
                 [[NSOperationQueue mainQueue] addOperationWithBlock:^{
                     UIImage *image = [UIImage imageNamed:obj.imageName];
-                    CGImageRef imageRef = [image newCGImageRenderedInBitmapContext];
+                    CGImageRef imageRef = image.CGImage;//[image newCGImageRenderedInBitmapContext];
                     
                     imageLayer.contents = (__bridge id)imageRef;
                 }];
@@ -259,6 +277,25 @@ static CGPoint pointAroundCircumference(CGPoint center, CGFloat radius, CGFloat 
             [self.imageLayers addObject:imageLayer];
         }
     }
+}
+
+- (void)drawLinearGradient:(CGContextRef)context path:(CGPathRef)path startColor:(CGColorRef)startColor endColor:(CGColorRef)endColor{
+    CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
+//    CGFloat locations[] = {0.0,1.0};
+    NSArray *colors = @[(__bridge id)startColor,(__bridge id)endColor];
+    CGGradientRef gradient = CGGradientCreateWithColors(colorSpace, (__bridge CFArrayRef)colors,NULL);
+    CGRect pathRect = CGPathGetBoundingBox(path);
+
+    //具体方向可根据需求修改
+    CGPoint startPoint = CGPointMake(CGRectGetMinX(pathRect), CGRectGetMidY(pathRect));
+    CGPoint endPoint = CGPointMake(CGRectGetMaxX(pathRect), CGRectGetMidY(pathRect));
+    CGContextSaveGState(context);
+    CGContextAddPath(context,path);
+    CGContextClip(context);
+    CGContextDrawLinearGradient(context,gradient, startPoint, endPoint, 0);
+    CGContextRestoreGState(context);
+    CGGradientRelease(gradient);
+    CGColorSpaceRelease(colorSpace);
 }
 
 - (void)drawDotOnCircle{

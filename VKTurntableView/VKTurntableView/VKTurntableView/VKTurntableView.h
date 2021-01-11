@@ -10,6 +10,11 @@
 
 #define VKDegress2Radians(degrees) ((M_PI * degrees) / 180)
 //   - 1.25
+
+@interface DWTurntableGradientColorModel : NSObject
+@property (strong,nonatomic) UIColor * startColor;
+@property (strong,nonatomic) UIColor * endColor;
+@end
 @interface DWTurntableViewModel : NSObject
 
 @property (nonatomic, strong) NSString *remark;
@@ -27,7 +32,8 @@
 @property (strong,nonatomic) UIColor* textFontColor;
 @property (strong,nonatomic) NSDictionary *attributes;
 @property (assign,nonatomic) CGSize imageSize;
-@property (strong,nonatomic) NSArray * panBgColors;
+@property (strong,nonatomic) NSArray <UIColor *>* panBgColors;
+@property (strong,nonatomic) NSArray <DWTurntableGradientColorModel *>* panBgGradientColors;//开发中，未完善
 @property(assign,nonatomic)  CGFloat circleWidth;
 @property(assign,nonatomic) CGFloat textPadding;
 
@@ -36,5 +42,5 @@
 //displayIndex 数组下标
 - (void)turntableRotateToDisplayIndex:(NSInteger)displayIndex;
 
-@property(copy,nonatomic) void(^lunckyAnimationDidStopBlock)(BOOL flag);
+@property(copy,nonatomic) void(^lunckyAnimationDidStopBlock)(BOOL flag,DWTurntableViewModel * item);
 @end
